@@ -47,4 +47,14 @@ MyPromise.prototype.then = function (onFulfilled, onRejected) {
       throw reason;
     }
   }
+  
+  // 当我们使用Promise的时候，如果执行成功, 那么就会执行onFulfilled, 如果失败了就会执行onRejected
+  // 所以我们检查status，如果是fulfilled，那么就调用onFulfilled，如果是rejected，那我们调用onRejected
+  if (this.status === FULFILLED) {
+    onFulfilled(this.value);
+  }
+  if (this.status === REJECTED) {
+    onFulfilled(this.reason);
+  }
+
 }

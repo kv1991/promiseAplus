@@ -28,3 +28,6 @@ function MyPromise(executor) {
     reject(err);
   }
 }
+
+// then方法: 由于then方法可以链式调用，所以是实例方法，而且规范中的api是MyPromise.then(onFulfilled, onRejected), 所以基本的架子如下:
+MyPromise.prototype.then = function(onFulfilled, onRejected) {}

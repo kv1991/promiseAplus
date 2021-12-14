@@ -30,4 +30,21 @@ function MyPromise(executor) {
 }
 
 // then方法: 由于then方法可以链式调用，所以是实例方法，而且规范中的api是MyPromise.then(onFulfilled, onRejected), 所以基本的架子如下:
-MyPromise.prototype.then = function(onFulfilled, onRejected) {}
+// 规范里要求：
+// 1. 先检查onFulfilled以及onRejected是不是函数
+// 2. 如果不是函数就忽略他们，所谓忽略就是如果是onFulfilled那么就返回value，如果是onRejected那么就返回reason，因为onRejected属于错误分支，那么应该throw an error.
+MyPromise.prototype.then = function (onFulfilled, onRejected) {
+  let realOnFulfilled = onFulfilled;
+  if (typeof realOnFulfilled !== 'function') {
+    realOnFulfilled = function (val) {
+      return val;
+    };
+  }
+
+  let realOnRejected = onRejected;
+  if (typeof realOnRejected !== 'function') {
+    realOnRejected = function (reason) {
+      throw reason;
+    }
+  }
+}

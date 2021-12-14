@@ -1,3 +1,5 @@
+const axios = require('axios');
+
 // 初始化promise状态
 const PENDING = 'PENDING';
 const FULFILLED = 'FULFILLED';
@@ -16,7 +18,7 @@ function MyPromise(executor) {
       that.status = FULFILLED;
       that.value = val;
       // #3
-      this.onFulfilledCallbacks.forEach(callback => {
+      that.onFulfilledCallbacks.forEach(callback => {
         callback(that.value);
       })
     }
@@ -26,7 +28,7 @@ function MyPromise(executor) {
       that.status = REJECTED;
       that.reason = reason;
       // #3
-      this.onRejectedCallbacks.forEach(callback => {
+      that.onRejectedCallbacks.forEach(callback => {
         callback(that.reason);
       })
     }
@@ -79,3 +81,39 @@ MyPromise.prototype.then = function (onFulfilled, onRejected) {
   }
 
 }
+
+let promise1 = new MyPromise((resolve) => {
+  axios.get('https://www.baidu.com')
+    .then(response => {
+      // console.log('response: ', response);
+      if (response.status === 200) {
+        resolve('request1 success');
+      }
+    })
+    .catch(error => {
+      console.log('error: ', error);
+    });
+});
+
+promise1.then(value => {
+  console.log(value);
+});
+
+let promise2 = new MyPromise((resolve, reject) => {
+  axios.get('https://www.baidu.com')
+    .then(response => {
+      console.log('response: ', response);
+      if (response.status === 200) {
+        reject('request2 failed');
+      }
+    })
+    .catch(error => {
+      console.log('error: ', error);
+    });
+});
+
+promise2.then(value => {
+  console.log(value);
+}, reason => {
+  console.log(reason);
+});

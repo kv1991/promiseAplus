@@ -50,6 +50,8 @@ function MyPromise(executor) {
 // #4-2: 如果onFulfilled不是函数,且成功执行,那么returned promise必须成功执行,并返回相同的值;
 // #4-3-1: 如果onRejected不是函数且promise1拒绝执行，promise2必须拒绝执行并返回相同的拒因。
 // #4-3-2: 如果promise1的onRejected执行成功了，promise2我们直接resolve
+// #5 onFulfilled和onRejected的执行时机：onFulfilled 和 onRejected 只有在执行环境堆栈仅包含平台代码时才可被调用。
+// 这个规范要求是实践中要确保onFulfilled和onRejected异步执行，且在then方法被调用的那一轮事件循环之后的新执行栈中执行，所以我们应该在执行onFulfilled和onRejected的时候应该包在setTimeout中
 // #1
 MyPromise.prototype.then = function (onFulfilled, onRejected) {
   let realOnFulfilled = onFulfilled;
@@ -78,50 +80,122 @@ MyPromise.prototype.then = function (onFulfilled, onRejected) {
     // #4-1
     return new MyPromise((resolve, reject) => {
       that.onFulfilledCallbacks.push(() => {
-        try {
-          realOnFulfilled(that.value)
-        } catch (err) {
-          reject(err);
-        }
+        setTimeout(() => { // #5 setTimeout
+          try {
+            let x = realOnFulfilled(that.value);
+            resolvePromise(promise2, x, resolve, reject);
+          } catch (err) {
+            reject(err);
+          }
+        }, 0);
       });
       that.onRejectedCallbacks.push(() => {
-        try {
-          realOnRejected(that.reason);
-        } catch (err) {
-          reject(err);
-        }
+        setTimeout(() => { // #5 setTimeout
+          try {
+            let x = realOnRejected(that.reason);
+            resolvePromise(promise2, x, resolve, reject);
+          } catch (err) {
+            reject(err);
+          }
+        }, 0);
       });
     });
   }
   // #2
   if (this.status === FULFILLED) {
     // #4-1
-    return new MyPromise((resolve, rejected) => {
-      try {
-        if (typeof onFulfilled === 'function') { // #4-2 如果onFulfilled是存在并且是函数，才执行。否则返回相同的值
-          realOnFulfilled(this.value);
+    let promise2 = new MyPromise((resolve, reject) => {
+      setTimeout(() => { // #5 setTimeout
+        try {
+          if (typeof onFulfilled === 'function') { // #4-2 如果onFulfilled是存在并且是函数，才执行。否则返回相同的值
+            let x = realOnFulfilled(that.value);
+            resolvePromise(promise2, x, resolve, reject);
+          } else {
+            resolve(that.value);
+          }
+        } catch (err) {
+          reject(err);
         }
-        resolve(that.value);
-      } catch (err) {
-        rejected(err);
-      }
+      }, 0);
     });
+    return promise2;
   }
+  
   if (this.status === REJECTED) {
     // #4-1
-    return new MyPromise((resolve, reject) => {
-      try {
-        if (typeof onRejected === 'function') { // #4-3-2
-          realOnRejected(this.reason);
-          resolve();
-        } else {
-          reject(that.reason); // #4-3-1
+    let promise2 = new MyPromise((resolve, reject) => {
+      setTimeout(() => { // #5 setTimeout
+        try {
+          if (typeof onRejected === 'function') { // #4-3-2
+            let x = realOnRejected(that.reason);
+            resolvePromise(promise2, x, resolve, reject);
+          } else {
+            reject(that.reason); // #4-3-1
+          }
+        } catch (err) {
+          reject(err);
         }
+      }, 0);
+    });
+    return promise2
+  }
+}
+
+// #5 规范要求: 如果onFulfilled或者onRejected返回一个值x，这运行promise解决过程[[Promise]](promise, x).所以我们需要对onFulfilled或者onRejected的返回值进行判断，如果有返回值的话就要进行promise解决过程
+function resolvePromise(promise, x, resolve, reject) {
+  // 判断promise与x是否指向同一个对象，如果是则throw一个TypeError拒绝执行
+  if (promise === x) {
+    return reject(new TypeError('The promise and the return value are the same'));
+  }
+  // 如果x是非空对象或者是函数
+  if (!!x && typeof x === 'object' || typeof x === 'function') {
+    try {
+      var then = x.then;
+    } catch (err) {
+      return reject(err);
+    }
+    
+    if (typeof then === 'function') {
+      var called = false;
+      try {
+        then.call(
+          x,
+          // 如果resolvePromise以值y为参数被调用，那么执行[[Promise]](promise, x)
+          y => {
+            // 如果resolvePromise和rejectedPromise均被调用
+            // 或者被同一参数调用多次，则优先采用首次调用忽略剩下的调用
+            // 实现这一功能需要加上flag called
+            if (called) return;
+            called = true;
+            resolvePromise(promise, y, resolve, reject);
+          },
+          r => {
+            // 如果rejectPromise以r为参数被调用，那就以r为拒因拒绝执行primise
+            if (called) return;
+            called = true;
+            reject(r);
+          }
+        )
       } catch (err) {
+        if (called) return;
+        // called = true;
         reject(err);
       }
-    })
+    } else {
+      resolve(x);
+    }
+  } else {
+   return resolve(x);
   }
+}
+MyPromise.deferred = function() {
+  var result = {};
+  result.promise = new MyPromise(function(resolve, reject){
+    result.resolve = resolve;
+    result.reject = reject;
+  });
+
+  return result;
 }
 
 let promise1 = new MyPromise((resolve) => {
@@ -159,3 +233,5 @@ promise2.then(value => {
 }, reason => {
   console.log(reason);
 });
+
+module.exports = MyPromise;

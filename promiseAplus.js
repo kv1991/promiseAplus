@@ -46,7 +46,10 @@ function MyPromise(executor) {
 // 1. 先检查onFulfilled以及onRejected是不是函数
 // 2. 如果不是函数就忽略他们,所谓忽略就是如果是onFulfilled那么就返回value,如果是onRejected那么就返回reason,因为onRejected属于错误分支,那么应该throw an error.
 // #4 根据规范,then的返回值必须是promise,这样才能实现链式调用,规范中还定义了不同情况如何处理,下面是简单的几种情况:
-// #4-1: 如果onFulfilled或者onRejected抛出一个异常，则promise2必须拒绝执行，并返回拒因
+// #4-1: 如果onFulfilled或者onRejected抛出一个异常, 则promise2必须拒绝执行,并返回拒因;
+// #4-2: 如果onFulfilled不是函数,且成功执行,那么returned promise必须成功执行,并返回相同的值;
+// #4-3-1: 如果onRejected不是函数且promise1拒绝执行，promise2必须拒绝执行并返回相同的拒因。
+// #4-3-2: 如果promise1的onRejected执行成功了，promise2我们直接resolve
 // #1
 MyPromise.prototype.then = function (onFulfilled, onRejected) {
   let realOnFulfilled = onFulfilled;
@@ -95,7 +98,10 @@ MyPromise.prototype.then = function (onFulfilled, onRejected) {
     // #4-1
     return new MyPromise((resolve, rejected) => {
       try {
-        realOnFulfilled(this.value);
+        if (typeof onFulfilled === 'function') { // #4-2 如果onFulfilled是存在并且是函数，才执行。否则返回相同的值
+          realOnFulfilled(this.value);
+        }
+        resolve(that.value);
       } catch (err) {
         rejected(err);
       }
@@ -105,13 +111,17 @@ MyPromise.prototype.then = function (onFulfilled, onRejected) {
     // #4-1
     return new MyPromise((resolve, reject) => {
       try {
-        realOnRejected(this.reason);
+        if (typeof onRejected === 'function') { // #4-3-2
+          realOnRejected(this.reason);
+          resolve();
+        } else {
+          reject(that.reason); // #4-3-1
+        }
       } catch (err) {
         reject(err);
       }
     })
   }
-
 }
 
 let promise1 = new MyPromise((resolve) => {

@@ -1,9 +1,9 @@
 const axios = require('axios');
 
 // 初始化promise状态
-const PENDING = 'PENDING';
-const FULFILLED = 'FULFILLED';
-const REJECTED = 'REJECTED';
+const PENDING = 'pending';
+const FULFILLED = 'fulfilled';
+const REJECTED = 'rejected';
 
 function MyPromise(executor) {
   this.status = PENDING;
@@ -78,7 +78,7 @@ MyPromise.prototype.then = function (onFulfilled, onRejected) {
   let that = this;
   if (this.status === PENDING) {
     // #4-1
-    return new MyPromise((resolve, reject) => {
+    let promise2 = new MyPromise((resolve, reject) => {
       that.onFulfilledCallbacks.push(() => {
         setTimeout(() => { // #5 setTimeout
           try {
@@ -100,6 +100,7 @@ MyPromise.prototype.then = function (onFulfilled, onRejected) {
         }, 0);
       });
     });
+    return promise2;
   }
   // #2
   if (this.status === FULFILLED) {
@@ -198,40 +199,112 @@ MyPromise.deferred = function() {
   return result;
 }
 
-let promise1 = new MyPromise((resolve) => {
-  axios.get('https://www.baidu.com')
-    .then(response => {
-      // console.log('response: ', response);
-      if (response.status === 200) {
-        resolve('request1 success');
-      }
-    })
-    .catch(error => {
-      console.log('error: ', error);
+// Promise.resolve
+MyPromise.resolve = function (value) {
+  if (value instanceof MyPromise) {
+    return value;
+  }
+  return new MyPromise((resolve, reject) => {
+    resolve(value);
+  });
+}
+
+// Promise.reject
+MyPromise.reject = function (reason) {
+  return new MyPromise((_, reject) => {
+    reject(reason);
+  });
+}
+
+//Promise.catch
+MyPromise.prototype.catch = function (onRejected) {
+  this.then(null, onRejected);
+}
+
+// Promise.all([p1, p2, p3]);
+MyPromise.all = function (promises) {
+  return new MyPromise((resolve, reject) => {
+    let result = [];
+    let count = 0;
+    let pLen = promises.length;
+    // 如果传入的promises为空数组
+    if (!pLen) {
+      resolve([]);
+    }
+    promises.forEach((item, idx) => {
+      MyPromise.resolve(item).then(res => {
+        count++;
+        result[idx] = res;
+        if (count === pLen) {
+          resolve(result);
+        }
+      }, reason => reject(reason)).catch(err => {
+        reject(err);
+      })
     });
+  });
+}
+
+const p1 = MyPromise.resolve(1);
+const p2 = new MyPromise((resolve) => {
+  setTimeout(() => resolve(2), 1000)
+});
+const p3 = new MyPromise((resolve) => {
+  setTimeout(() => resolve(3), 3000)
 });
 
-promise1.then(value => {
-  console.log(value);
-});
+const p4 = MyPromise.reject('err4');
+const p5 = MyPromise.reject('err5');
+// 1. 所有的MyPromise都成功了
+const p11 = MyPromise.all([p1, p2, p3])
+  .then(console.log) // [ 1, 2, 3 ]
+  .catch(console.log);
+      
+// 2. 有一个MyPromise失败了
+const p12 = MyPromise.all([p1, p2, p4])
+  .then(console.log)
+  .catch(console.log); // err4
+      
+// 3. 有两个MyPromise失败了，可以看到最终输出的是err4，第一个失败的返回值
+const p13 = MyPromise.all([p1, p4, p5])
+  .then(res => console.log(res))
+  .catch(console.log); // err4
 
-let promise2 = new MyPromise((resolve, reject) => {
-  axios.get('https://www.baidu.com')
-    .then(response => {
-      console.log('response: ', response);
-      if (response.status === 200) {
-        reject('request2 failed');
-      }
-    })
-    .catch(error => {
-      console.log('error: ', error);
-    });
-});
 
-promise2.then(value => {
-  console.log(value);
-}, reason => {
-  console.log(reason);
-});
+// let promise1 = new MyPromise((resolve) => {
+//   axios.get('https://www.baidu.com')
+//     .then(response => {
+//       // console.log('response: ', response);
+//       if (response.status === 200) {
+//         resolve('request1 success');
+//       }
+//     })
+//     .catch(error => {
+//       console.log('error: ', error);
+//     });
+// });
+
+// promise1.then(value => {
+//   console.log(value);
+// });
+
+// let promise2 = new MyPromise((resolve, reject) => {
+//   axios.get('https://www.baidu.com')
+//     .then(response => {
+//       console.log('response: ', response);
+//       if (response.status === 200) {
+//         reject('request2 failed');
+//       }
+//     })
+//     .catch(error => {
+//       console.log('error: ', error);
+//     });
+// });
+
+// promise2.then(value => {
+//   console.log(value);
+// }, reason => {
+//   console.log(reason);
+// });
 
 module.exports = MyPromise;

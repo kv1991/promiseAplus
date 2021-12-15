@@ -267,44 +267,48 @@ const p12 = MyPromise.all([p1, p2, p4])
       
 // 3. 有两个MyPromise失败了，可以看到最终输出的是err4，第一个失败的返回值
 const p13 = MyPromise.all([p1, p4, p5])
-  .then(res => console.log(res))
+  .then(console.log)
   .catch(console.log); // err4
+// 4. promises为空[]
+const p14 = MyPromise.all([])
+  .then(console.log)
+  .catch(console.log);
 
 
-// let promise1 = new MyPromise((resolve) => {
-//   axios.get('https://www.baidu.com')
-//     .then(response => {
-//       // console.log('response: ', response);
-//       if (response.status === 200) {
-//         resolve('request1 success');
-//       }
-//     })
-//     .catch(error => {
-//       console.log('error: ', error);
-//     });
-// });
+let promise1 = new MyPromise((resolve) => {
+  axios.get('https://www.baidu.com')
+    .then(response => {
+      // console.log('response: ', response);
+      if (response.status === 200) {
+        resolve('request1 success');
+      }
+    })
+    .catch(error => {
+      console.log('error: ', error);
+    });
+});
 
-// promise1.then(value => {
-//   console.log(value);
-// });
+promise1.then(value => {
+  console.log(value);
+});
 
-// let promise2 = new MyPromise((resolve, reject) => {
-//   axios.get('https://www.baidu.com')
-//     .then(response => {
-//       console.log('response: ', response);
-//       if (response.status === 200) {
-//         reject('request2 failed');
-//       }
-//     })
-//     .catch(error => {
-//       console.log('error: ', error);
-//     });
-// });
+let promise2 = new MyPromise((resolve, reject) => {
+  axios.get('https://www.baidu.com')
+    .then(response => {
+      console.log('response: ', response);
+      if (response.status === 200) {
+        reject('request2 failed');
+      }
+    })
+    .catch(error => {
+      console.log('error: ', error);
+    });
+});
 
-// promise2.then(value => {
-//   console.log(value);
-// }, reason => {
-//   console.log(reason);
-// });
+promise2.then(value => {
+  console.log(value);
+}, reason => {
+  console.log(reason);
+});
 
 module.exports = MyPromise;

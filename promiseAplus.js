@@ -245,6 +245,17 @@ MyPromise.all = function (promises) {
   });
 }
 
+MyPromise.race = function (promises) {
+  if (!Array.isArray(promises)) {
+    throw new TypeError('Props promises must be an array.')
+  }
+  return new MyPromise((resolve, reject) => {
+    promises.forEach(item => {
+      resolve(item).then(resolve).catch(reject);
+    })
+  });
+}
+
 const p1 = MyPromise.resolve(1);
 const p2 = new MyPromise((resolve) => {
   setTimeout(() => resolve(2), 1000)
